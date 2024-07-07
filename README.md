@@ -4,7 +4,7 @@ This project demonstrates the use of functions and error handling functions such
 
 ## Description
 
-The project allows the user to deposit, withdraw, and check current balance on their account. A user can set a maximum balance, and the user can only deposit and withdraw less than the maximum balance. 
+The project allows the user to buy item, check item count, and allows owners to add item price and item count, and withdraw the accumulated sales. There will be actions that can only be accessed and done by the owner, and an error will occur if an unauthorized action is done. 
 
 ## Getting Started
 
@@ -15,40 +15,72 @@ To run this program, you can use Remix, an online Solidity IDE. To get started, 
 Once you are on the Remix website, create a new file by clicking on the "+" icon in the left-hand sidebar. Save the file with a .sol extension (e.g., balanceContract.sol). Copy and paste the following code into the file:
 ```
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.0;
 
-contract ErrorHandlingContract {
-    uint256 public maxBalance = 1000;
-    uint256 public newBalance = 0;
+contract itemSales {
+    address public owner;
+    uint public itemPrice;
+    uint public itemCount;
 
-    //validates the input amount
-    function withdraw(uint256 amount) public {
-        require(amount <= maxBalance, "Insufficient balance");
-        newBalance -= amount;
+    constructor(uint _itemPrice, uint _itemCount) {
+        owner = msg.sender;
+        itemPrice = _itemPrice;
+        itemCount = _itemCount;
     }
 
-    //maxBalance should not change
-    function maintainBalance() view public {
-       assert(maxBalance==1000);
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can perform this action.");
+        _;
     }
 
-    //deposit amount
-    function deposit(uint amount) public {
-        //newBalance should always be less than or equal to maxBalance
-        if(newBalance >= maxBalance){
-            revert("Cannot deposit. Balance has reached its max.");
-        }else if(amount>0 && amount<=maxBalance){
-            newBalance += amount;
+    function buyItem() external payable {
+        require(msg.value >= itemPrice, "Not enough Ether sent.");
+        require(itemCount > 0, "No items available.");
+
+        // Decrease item count
+        itemCount--;
+
+        // If more Ether is sent than required, send back the excess
+        if (msg.value > itemPrice) {
+            uint refund = msg.value - itemPrice;
+            (bool sent, ) = msg.sender.call{value: refund}("");
+            require(sent, "Failed to send refund.");
+        }
+    }
+
+    function restock(uint _count) external onlyOwner {
+        require(_count > 0, "Restock count must be greater than zero.");
+        itemCount += _count;
+    }
+
+    function withdraw() external onlyOwner {
+        uint balance = address(this).balance;
+        require(balance > 0, "No Ether to withdraw.");
+
+        (bool sent, ) = owner.call{value: balance}("");
+        require(sent, "Failed to withdraw Ether.");
+    }
+
+    // Example of using assert 
+    function checkOwner() external view {
+        assert(msg.sender == owner);
+    }
+
+    // Example of using revert
+    function customRevert() external view {
+        if (msg.sender != owner) {
+            revert("You are not the owner!");
         }
     }
 }
 
+
 ```
-To compile the code, click on the "Solidity Compiler" tab in the left-hand sidebar. Make sure the "Compiler" option is set to "0.8.23" (or another compatible version), and then click on the "Compile balanceContract.sol" button.
+To compile the code, click on the "Solidity Compiler" tab in the left-hand sidebar. Make sure the "Compiler" option is set to "0.8.0" (or another compatible version), and then click on the "Compile itemSales.sol" button.
 
 Once the code is compiled, you can deploy the contract by clicking on the "Deploy & Run Transactions" tab in the left-hand sidebar. Select the "balanceContract" contract from the dropdown menu, and then click on the "Deploy" button.
 
-Once the contract is deployed, you can interact with it by calling the functions "deposit", "withdraw", "maxBalance", "maintainBalance", and "newBalance". 
+Once the contract is deployed, you can interact with it by calling the functions "buyItem", "restock", "withdraw", "checkOwner", "customRevert", "itemCount", "itemPrice", and "owner". 
 
 ## Authors
 
