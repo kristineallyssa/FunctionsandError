@@ -1,28 +1,59 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.0;
 
-contract ErrorHandlingContract {
-    uint256 public maxBalance = 1000;
-    uint256 public newBalance = 0;
+contract itemSales {
+    address public owner;
+    uint public itemPrice;
+    uint public itemCount;
 
-    //validates the input amount
-    function withdraw(uint256 amount) public {
-        require(amount <= maxBalance, "Insufficient balance");
-        newBalance -= amount;
+    constructor(uint _itemPrice, uint _itemCount) {
+        owner = msg.sender;
+        itemPrice = _itemPrice;
+        itemCount = _itemCount;
     }
 
-    //maxBalance should not change
-    function maintainBalance() view public {
-       assert(maxBalance==1000);
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can perform this action.");
+        _;
     }
 
-    //deposit amount
-    function deposit(uint amount) public {
-        //newBalance should always be less than or equal to maxBalance
-        if(newBalance >= maxBalance){
-            revert("Cannot deposit. Balance has reached its max.");
-        }else if(amount>0 && amount<=maxBalance){
-            newBalance += amount;
+    function buyItem() external payable {
+        require(msg.value >= itemPrice, "Not enough Ether sent.");
+        require(itemCount > 0, "No items available.");
+
+        // Decrease item count
+        itemCount--;
+
+        // If more Ether is sent than required, send back the excess
+        if (msg.value > itemPrice) {
+            uint refund = msg.value - itemPrice;
+            (bool sent, ) = msg.sender.call{value: refund}("");
+            require(sent, "Failed to send refund.");
+        }
+    }
+
+    function restock(uint _count) external onlyOwner {
+        require(_count > 0, "Restock count must be greater than zero.");
+        itemCount += _count;
+    }
+
+    function withdraw() external onlyOwner {
+        uint balance = address(this).balance;
+        require(balance > 0, "No Ether to withdraw.");
+
+        (bool sent, ) = owner.call{value: balance}("");
+        require(sent, "Failed to withdraw Ether.");
+    }
+
+    // Example of using assert 
+    function checkOwner() external view {
+        assert(msg.sender == owner);
+    }
+
+    // Example of using revert
+    function customRevert() external view {
+        if (msg.sender != owner) {
+            revert("You are not the owner!");
         }
     }
 }
